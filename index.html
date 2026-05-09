@@ -214,7 +214,7 @@
 <body>
   <main class="app">
     <h1 class="title">RECT BLASTER</h1>
-    <p class="subtitle">QUARTH-LIKE TUNED v6</p>
+    <p class="subtitle">QUARTH-LIKE FIX v7</p>
 
     <section class="hud" aria-label="スコア表示">
       <div class="hud-card">
@@ -236,7 +236,7 @@
 
       <div class="overlay show" id="startOverlay">
         <h2>READY?</h2>
-        <p>v6ではゲームオーバー判定を修正。<br>より見極め型のブロック構成に寄せています。</p>
+        <p>v7ではスタート直後ゲームオーバーを修正。<br>危険ライン到達時のみ終了します。</p>
         <button id="startBtn">START</button>
       </div>
 
@@ -285,7 +285,7 @@
     const MIN_DROP_INTERVAL = 780;
     const BULLET_INTERVAL = 50;
     const SPAWN_INTERVAL_BASE = 2750;
-    const BEST_KEY = "rect_blaster_best_score_v6";
+    const BEST_KEY = "rect_blaster_best_score_v7";
     const DANGER_ROW = ROWS - 1;
 
     /*
@@ -336,6 +336,7 @@
     let spawnTimer = 0;
     let bulletTimer = 0;
     let clearFlashTimer = 0;
+    let dropCount = 0;
 
     let keys = { left: false, right: false };
     let soundEnabled = true;
@@ -364,6 +365,7 @@
       spawnTimer = startNow ? 2200 : 0;
       bulletTimer = 0;
       clearFlashTimer = 0;
+      dropCount = 0;
 
       scoreEl.textContent = score;
       levelEl.textContent = level;
@@ -489,7 +491,6 @@
       }
 
       checkLevelUp();
-      checkGameOver();
     }
 
     let moveAccumulator = 0;
@@ -775,21 +776,36 @@
     }
 
     function moveBlocksDownAsWhole() {
-      // v6修正：
-      // 以前はROWS-2にブロックがあるだけでゲームオーバーになり得た。
-      // 画面上では危険ライン未到達に見えるため、これは理不尽。
-      // まず1段下げ、その結果DANGER_ROWに到達した場合のみゲームオーバーにする。
+      /*
+        v7修正：
+        ゲームオーバー判定は「落下処理の直後」だけ行う。
+        スタート直後や通常フレームでは判定しない。
+        また、初回落下前後の誤判定を避けるため、dropCountを管理する。
+      */
 
-      for (let y = ROWS - 2; y >= 0; y--) {
+      const nextGrid = createEmptyGrid();
+
+      for (let y = 0; y < ROWS; y++) {
         for (let x = 0; x < COLS; x++) {
-          grid[y + 1][x] = grid[y][x];
+          const id = grid[y][x];
+          if (id === EMPTY) continue;
+
+          const ny = y + 1;
+
+          if (ny >= ROWS) {
+            triggerGameOver();
+            return;
+          }
+
+          nextGrid[ny][x] = id;
         }
       }
 
-      for (let x = 0; x < COLS; x++) {
-        grid[0][x] = EMPTY;
-      }
+      grid = nextGrid;
+      dropCount += 1;
 
+      // 実際に危険ラインへ入った時だけゲームオーバー。
+      // 上部にブロックが出ただけでは絶対に終了しない。
       for (let x = 0; x < COLS; x++) {
         if (grid[DANGER_ROW][x] !== EMPTY) {
           triggerGameOver();
@@ -947,12 +963,9 @@
     }
 
     function checkGameOver() {
-      for (let x = 0; x < COLS; x++) {
-        if (grid[DANGER_ROW][x] !== EMPTY) {
-          triggerGameOver();
-          return;
-        }
-      }
+      // v7では通常フレームでのゲームオーバー判定は使わない。
+      // 判定はmoveBlocksDownAsWhole()の直後だけ行う。
+      return false;
     }
 
     function triggerGameOver() {
