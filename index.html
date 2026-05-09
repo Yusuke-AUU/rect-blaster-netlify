@@ -16,9 +16,6 @@
       --danger: #fb7185;
       --text: #e0f2fe;
       --muted: #7dd3fc;
-      --button: #0f172a;
-      --button-border: #38bdf8;
-      --button-active: #075985;
     }
 
     * {
@@ -152,6 +149,7 @@
     .overlay p {
       margin: 4px 0;
       color: var(--text);
+      line-height: 1.55;
     }
 
     .controls {
@@ -163,7 +161,7 @@
     }
 
     button {
-      border: 1px solid var(--button-border);
+      border: 1px solid #38bdf8;
       background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(7, 89, 133, 0.58));
       color: #f0f9ff;
       border-radius: 16px;
@@ -176,7 +174,7 @@
 
     button:active {
       transform: translateY(1px);
-      background: var(--button-active);
+      background: #075985;
     }
 
     .small-actions {
@@ -220,7 +218,7 @@
 <body>
   <main class="app">
     <h1 class="title">RECT BLASTER</h1>
-    <p class="subtitle">BLOCK SHOOTING PUZZLE</p>
+    <p class="subtitle">BOTTOM-GAP TUNED v3</p>
 
     <section class="hud" aria-label="スコア表示">
       <div class="hud-card">
@@ -239,17 +237,20 @@
 
     <section class="game-wrap" id="gameWrap">
       <canvas id="game" width="300" height="600" aria-label="RECT BLASTER game field"></canvas>
+
       <div class="overlay show" id="startOverlay">
         <h2>READY?</h2>
-        <p>欠けたブロックを撃ち、四角形にして消せ！</p>
+        <p>v3では、下から撃って埋められる欠け方だけ出ます。<br>上欠け・中央穴は出現禁止です。</p>
         <button id="startBtn">START</button>
       </div>
+
       <div class="overlay" id="gameOverOverlay">
         <h2>GAME OVER</h2>
         <p>Score: <span id="finalScore">0</span></p>
         <p>Best: <span id="finalBest">0</span></p>
         <button id="retryBtn">RETRY</button>
       </div>
+
       <div class="overlay" id="pauseOverlay">
         <h2>PAUSE</h2>
         <p>Pキー、または一時停止ボタンで再開</p>
@@ -269,7 +270,7 @@
 
     <p class="help">
       PC: ← → で移動 / Spaceで発射 / Pで一時停止 / Rでリスタート<br>
-      四角形または長方形が完成すると消えます。
+      下辺の欠けを撃って埋めると四角形になって消えます。
     </p>
   </main>
 
@@ -285,43 +286,20 @@
     const EMPTY = 0;
     const BLOCK = 1;
 
-    const INITIAL_DROP_INTERVAL = 950;
-    const MIN_DROP_INTERVAL = 260;
-    const BULLET_INTERVAL = 72;
-    const SPAWN_INTERVAL_BASE = 1800;
-    const BEST_KEY = "rect_blaster_best_score_v1";
+    const INITIAL_DROP_INTERVAL = 1500;
+    const MIN_DROP_INTERVAL = 560;
+    const BULLET_INTERVAL = 54;
+    const SPAWN_INTERVAL_BASE = 3000;
+    const BEST_KEY = "rect_blaster_best_score_v3";
 
-    const SHAPES = [
-      // 2x2 あと1マス
-      [[1, 1], [1, 0]],
-      [[1, 1], [0, 1]],
-      [[1, 0], [1, 1]],
-      [[0, 1], [1, 1]],
-
-      // コの字
-      [[1, 0, 1], [1, 1, 1]],
-      [[1, 1, 1], [1, 0, 1]],
-
-      // L字
-      [[1, 0], [1, 0], [1, 1]],
-      [[0, 1], [0, 1], [1, 1]],
-      [[1, 1, 1], [1, 0, 0]],
-      [[1, 1, 1], [0, 0, 1]],
-
-      // T字
-      [[1, 1, 1], [0, 1, 0]],
-      [[0, 1, 0], [1, 1, 1]],
-
-      // 穴あき
-      [[1, 1, 1], [1, 0, 1], [1, 1, 1]],
-
-      // 3x2 あと1マス
-      [[1, 1, 1], [1, 0, 1]],
-      [[1, 0, 1], [1, 1, 1]],
-
-      // 4x2 あと2マス
-      [[1, 1, 1, 1], [1, 0, 0, 1]]
-    ];
+    /*
+      v3 重要方針：
+      このゲームは下からしか撃てない。
+      したがって「上側が欠けている形」「中央に穴がある形」は完成不能になりやすい。
+      そのため、すべての出現ブロックは
+      「完成予定の長方形から、下辺の一部だけを欠けさせた形」
+      として生成する。
+    */
 
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
@@ -354,11 +332,7 @@
     let bulletTimer = 0;
     let clearFlashTimer = 0;
 
-    let keys = {
-      left: false,
-      right: false
-    };
-
+    let keys = { left: false, right: false };
     let soundEnabled = true;
     let audioCtx = null;
 
@@ -381,7 +355,7 @@
       gameEnded = false;
       lastTime = 0;
       dropTimer = 0;
-      spawnTimer = 900;
+      spawnTimer = startNow ? 1800 : 0;
       bulletTimer = 0;
       clearFlashTimer = 0;
 
@@ -394,6 +368,12 @@
       pauseOverlay.classList.remove("show");
 
       draw();
+
+      if (startNow) {
+        setTimeout(() => {
+          if (running && !gameEnded) spawnBlock(true);
+        }, 500);
+      }
     }
 
     function createEmptyGrid() {
@@ -490,15 +470,15 @@
         bulletTimer -= BULLET_INTERVAL;
       }
 
-      const dropInterval = Math.max(MIN_DROP_INTERVAL, INITIAL_DROP_INTERVAL - (level - 1) * 85);
+      const dropInterval = Math.max(MIN_DROP_INTERVAL, INITIAL_DROP_INTERVAL - (level - 1) * 95);
       if (dropTimer >= dropInterval) {
-        moveBlocksDown();
+        moveBlocksDownAsWhole();
         dropTimer = 0;
       }
 
-      const spawnInterval = Math.max(740, SPAWN_INTERVAL_BASE - (level - 1) * 110);
+      const spawnInterval = Math.max(1400, SPAWN_INTERVAL_BASE - (level - 1) * 130);
       if (spawnTimer >= spawnInterval) {
-        spawnBlock();
+        spawnBlock(false);
         spawnTimer = 0;
       }
 
@@ -509,7 +489,7 @@
     let moveAccumulator = 0;
     function handleContinuousInput(delta) {
       moveAccumulator += delta;
-      if (moveAccumulator < 95) return;
+      if (moveAccumulator < 92) return;
 
       if (keys.left) {
         movePlayer(-1);
@@ -522,7 +502,6 @@
 
     function draw() {
       ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-
       drawBackground();
       drawGridBlocks();
       drawBullets();
@@ -617,52 +596,163 @@
       ctx.stroke();
     }
 
-    function spawnBlock() {
-      const shape = selectShapeForLevel();
-      const width = shape[0].length;
-      const startX = Math.floor(Math.random() * (COLS - width + 1));
+    function spawnBlock(isOpeningPractice) {
+      if (countBlocks() > 38 && level <= 3) return;
 
+      const shape = generateBottomGapShape(isOpeningPractice);
+      const width = shape[0].length;
+
+      let startX = isOpeningPractice
+        ? Math.floor((COLS - width) / 2)
+        : Math.floor(Math.random() * (COLS - width + 1));
+
+      const possibleXs = [];
+      for (let x = 0; x <= COLS - width; x++) {
+        if (canPlaceShape(shape, x, 0)) possibleXs.push(x);
+      }
+
+      if (possibleXs.length === 0) {
+        triggerGameOver();
+        return;
+      }
+
+      if (!canPlaceShape(shape, startX, 0)) {
+        startX = possibleXs[Math.floor(Math.random() * possibleXs.length)];
+      }
+
+      placeShape(shape, startX, 0);
+    }
+
+    function generateBottomGapShape(isOpeningPractice) {
+      /*
+        完成予定の長方形を作る。
+        そこから最下段だけを1〜2マス欠けさせる。
+        これにより、下から撃てば必ず完成可能。
+      */
+
+      let width;
+      let height;
+      let holes;
+
+      if (isOpeningPractice || level <= 2) {
+        const patterns = [
+          { w: 2, h: 2, holes: 1 },
+          { w: 3, h: 2, holes: 1 },
+          { w: 4, h: 2, holes: 1 }
+        ];
+        const p = patterns[Math.floor(Math.random() * patterns.length)];
+        width = p.w;
+        height = p.h;
+        holes = p.holes;
+      } else if (level <= 5) {
+        const patterns = [
+          { w: 2, h: 2, holes: 1 },
+          { w: 3, h: 2, holes: 1 },
+          { w: 4, h: 2, holes: 1 },
+          { w: 3, h: 3, holes: 1 },
+          { w: 4, h: 3, holes: 1 },
+          { w: 4, h: 2, holes: 2 }
+        ];
+        const p = patterns[Math.floor(Math.random() * patterns.length)];
+        width = p.w;
+        height = p.h;
+        holes = p.holes;
+      } else {
+        const patterns = [
+          { w: 3, h: 2, holes: 1 },
+          { w: 4, h: 2, holes: 1 },
+          { w: 3, h: 3, holes: 1 },
+          { w: 4, h: 3, holes: 1 },
+          { w: 4, h: 2, holes: 2 },
+          { w: 5, h: 2, holes: 2 },
+          { w: 5, h: 3, holes: 2 }
+        ];
+        const p = patterns[Math.floor(Math.random() * patterns.length)];
+        width = p.w;
+        height = p.h;
+        holes = p.holes;
+      }
+
+      const shape = Array.from({ length: height }, () => Array(width).fill(1));
+
+      // 欠けは必ず最下段に置く。上欠けは禁止。
+      const bottomY = height - 1;
+      const holeXs = pickDistinctIntegers(width, holes);
+
+      for (const hx of holeXs) {
+        shape[bottomY][hx] = 0;
+      }
+
+      // 安全策：最下段が全部穴にならないようにする
+      if (shape[bottomY].every(v => v === 0)) {
+        shape[bottomY][0] = 1;
+      }
+
+      return shape;
+    }
+
+    function pickDistinctIntegers(max, count) {
+      const values = [];
+      const candidates = Array.from({ length: max }, (_, i) => i);
+
+      while (values.length < count && candidates.length > 0) {
+        const idx = Math.floor(Math.random() * candidates.length);
+        values.push(candidates.splice(idx, 1)[0]);
+      }
+
+      return values;
+    }
+
+    function canPlaceShape(shape, startX, startY) {
       for (let sy = 0; sy < shape.length; sy++) {
         for (let sx = 0; sx < shape[sy].length; sx++) {
           if (shape[sy][sx] === 1) {
             const gx = startX + sx;
-            const gy = sy;
-            if (grid[gy][gx] === BLOCK) {
-              triggerGameOver();
-              return;
-            }
+            const gy = startY + sy;
+            if (gx < 0 || gx >= COLS || gy < 0 || gy >= ROWS) return false;
+            if (grid[gy][gx] === BLOCK) return false;
           }
         }
       }
+      return true;
+    }
 
+    function placeShape(shape, startX, startY) {
       for (let sy = 0; sy < shape.length; sy++) {
         for (let sx = 0; sx < shape[sy].length; sx++) {
           if (shape[sy][sx] === 1) {
-            grid[sy][startX + sx] = BLOCK;
+            grid[startY + sy][startX + sx] = BLOCK;
           }
         }
       }
     }
 
-    function selectShapeForLevel() {
-      const maxIndex = Math.min(SHAPES.length, 5 + level * 2);
-      return SHAPES[Math.floor(Math.random() * maxIndex)];
+    function countBlocks() {
+      let count = 0;
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if (grid[y][x] === BLOCK) count++;
+        }
+      }
+      return count;
     }
 
-    function moveBlocksDown() {
+    function moveBlocksDownAsWhole() {
+      for (let x = 0; x < COLS; x++) {
+        if (grid[ROWS - 2][x] === BLOCK || grid[ROWS - 1][x] === BLOCK) {
+          triggerGameOver();
+          return;
+        }
+      }
+
       for (let y = ROWS - 2; y >= 0; y--) {
         for (let x = 0; x < COLS; x++) {
-          if (grid[y][x] === BLOCK) {
-            if (y + 1 >= ROWS - 1) {
-              triggerGameOver();
-              return;
-            }
-            if (grid[y + 1][x] === EMPTY) {
-              grid[y + 1][x] = BLOCK;
-              grid[y][x] = EMPTY;
-            }
-          }
+          grid[y + 1][x] = grid[y][x];
         }
+      }
+
+      for (let x = 0; x < COLS; x++) {
+        grid[0][x] = EMPTY;
       }
     }
 
@@ -676,12 +766,11 @@
 
     function shoot() {
       if (!running || paused || gameEnded) return;
-
-      // MVPは画面内に最大2発まで。ゲームバランスを見て調整可能。
-      if (bullets.length >= 2) return;
+      if (bullets.length >= 3) return;
 
       const startY = player.y - 1;
       if (startY < 0) return;
+
       if (grid[startY][player.x] === BLOCK) {
         triggerGameOver();
         return;
@@ -711,12 +800,11 @@
     }
 
     function attachBulletToBlock(bullet, index) {
-      // 弾がブロックに当たったら、弾の現在位置をブロックとして固定する。
       if (bullet.y >= 0 && bullet.y < ROWS && grid[bullet.y][bullet.x] === EMPTY) {
         grid[bullet.y][bullet.x] = BLOCK;
       }
-      bullets.splice(index, 1);
 
+      bullets.splice(index, 1);
       playTone(220, 0.05, "triangle", 0.04);
       checkRectangles();
     }
@@ -788,7 +876,6 @@
       const height = maxY - minY + 1;
       const area = width * height;
 
-      // 1x1は消さない。1x2以上、または2x2以上を許可。
       if (area < 2) return false;
 
       return group.length === area;
@@ -828,7 +915,7 @@
     }
 
     function checkLevelUp() {
-      const newLevel = Math.floor(score / 500) + 1;
+      const newLevel = Math.floor(score / 1000) + 1;
       if (newLevel > level) {
         level = newLevel;
         levelEl.textContent = level;
