@@ -1,38 +1,15 @@
-# RECT BLASTER v3
+[build]
+  publish = "."
+  command = ""
 
-縦スクロール型のブロックシューティングパズルゲームです。
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
 
-v3では、上からしか埋められない欠け方を完全に排除し、下から撃てば必ず完成可能な形だけを生成します。
-
-## v3での主な修正点
-
-- 上部欠けブロックを出現禁止
-- 中央穴あきブロックを出現禁止
-- 完成予定の長方形から「下辺だけ」を欠けさせる生成方式へ変更
-- 序盤は1発で完成できる形が中心
-- 中盤以降のみ、2発必要な形が出現
-- 落下速度と出現間隔をさらに調整
-- 四角形完成の成功体験を増やす調整
-
-## 遊び方
-
-PC操作：
-
-- 左矢印キー：左移動
-- 右矢印キー：右移動
-- Space：ブロック弾を発射
-- P：一時停止
-- R：リスタート
-
-スマホ操作：
-
-- 左ボタン：左移動
-- SHOTボタン：発射
-- 右ボタン：右移動
-
-## GitHub / Netlify
-
-このフォルダをGitHubにアップし、Netlifyでリポジトリを選択すれば公開できます。
-
-Build commandは空欄でOKです。
-Publish directoryは `.` です。
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
