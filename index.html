@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>RECT BLASTER</title>
+  <style>
+    :root {
+      --bg: #020617;
+      --panel: rgba(15, 23, 42, 0.92);
+      --line: #38bdf8;
+      --line-soft: rgba(56, 189, 248, 0.35);
+      --block: #22d3ee;
+      --block-inner: #0ea5e9;
+      --bullet: #f8fafc;
+      --danger: #fb7185;
+      --text: #e0f2fe;
+      --muted: #7dd3fc;
+      --button: #0f172a;
+      --button-border: #38bdf8;
+      --button-active: #075985;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top, rgba(14, 165, 233, 0.18), transparent 34%),
+        linear-gradient(180deg, #020617 0%, #020617 55%, #030712 100%);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    .app {
+      width: min(100vw, 480px);
+      min-height: 100vh;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .title {
+      margin: 2px 0 0;
+      font-size: clamp(24px, 6vw, 34px);
+      line-height: 1;
+      letter-spacing: 0.14em;
+      text-align: center;
+      color: #f0f9ff;
+      text-shadow: 0 0 14px rgba(56, 189, 248, 0.8);
+      font-weight: 900;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+    }
+
+    .hud {
+      width: min(100%, 360px);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .hud-card {
+      background: var(--panel);
+      border: 1px solid var(--line-soft);
+      border-radius: 12px;
+      padding: 7px 8px;
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.11);
+      text-align: center;
+    }
+
+    .hud-label {
+      display: block;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+
+    .hud-value {
+      display: block;
+      margin-top: 2px;
+      font-size: 17px;
+      font-weight: 800;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .game-wrap {
+      position: relative;
+      width: min(100%, 360px);
+      aspect-ratio: 10 / 20;
+      border: 2px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background:
+        linear-gradient(rgba(56, 189, 248, 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.07) 1px, transparent 1px),
+        rgba(2, 6, 23, 0.86);
+      background-size: 10% 5%;
+      box-shadow:
+        0 0 0 1px rgba(14, 165, 233, 0.2) inset,
+        0 0 36px rgba(14, 165, 233, 0.25);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.82);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      padding: 24px;
+      text-align: center;
+      z-index: 5;
+    }
+
+    .overlay.show {
+      display: flex;
+    }
+
+    .overlay h2 {
+      margin: 0 0 8px;
+      font-size: 32px;
+      letter-spacing: 0.12em;
+      color: #fff;
+      text-shadow: 0 0 18px rgba(56, 189, 248, 0.9);
+    }
+
+    .overlay p {
+      margin: 4px 0;
+      color: var(--text);
+    }
+
+    .controls {
+      width: min(100%, 360px);
+      display: grid;
+      grid-template-columns: 1fr 1.35fr 1fr;
+      gap: 10px;
+      user-select: none;
+    }
+
+    button {
+      border: 1px solid var(--button-border);
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(7, 89, 133, 0.58));
+      color: #f0f9ff;
+      border-radius: 16px;
+      padding: 12px 10px;
+      font-weight: 800;
+      font-size: 16px;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.18);
+      cursor: pointer;
+    }
+
+    button:active {
+      transform: translateY(1px);
+      background: var(--button-active);
+    }
+
+    .small-actions {
+      width: min(100%, 360px);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .small-actions button {
+      padding: 9px 10px;
+      font-size: 13px;
+      border-radius: 12px;
+    }
+
+    .help {
+      width: min(100%, 360px);
+      margin: 0;
+      color: rgba(224, 242, 254, 0.76);
+      font-size: 11px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .flash {
+      animation: flash 160ms ease-out;
+    }
+
+    @keyframes flash {
+      0% { filter: brightness(2); }
+      100% { filter: brightness(1); }
+    }
+
+    @media (min-height: 760px) {
+      .app {
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1 class="title">RECT BLASTER</h1>
+    <p class="subtitle">BLOCK SHOOTING PUZZLE</p>
+
+    <section class="hud" aria-label="スコア表示">
+      <div class="hud-card">
+        <span class="hud-label">SCORE</span>
+        <span class="hud-value" id="score">0</span>
+      </div>
+      <div class="hud-card">
+        <span class="hud-label">LEVEL</span>
+        <span class="hud-value" id="level">1</span>
+      </div>
+      <div class="hud-card">
+        <span class="hud-label">BEST</span>
+        <span class="hud-value" id="best">0</span>
+      </div>
+    </section>
+
+    <section class="game-wrap" id="gameWrap">
+      <canvas id="game" width="300" height="600" aria-label="RECT BLASTER game field"></canvas>
+      <div class="overlay show" id="startOverlay">
+        <h2>READY?</h2>
+        <p>欠けたブロックを撃ち、四角形にして消せ！</p>
+        <button id="startBtn">START</button>
+      </div>
+      <div class="overlay" id="gameOverOverlay">
+        <h2>GAME OVER</h2>
+        <p>Score: <span id="finalScore">0</span></p>
+        <p>Best: <span id="finalBest">0</span></p>
+        <button id="retryBtn">RETRY</button>
+      </div>
+      <div class="overlay" id="pauseOverlay">
+        <h2>PAUSE</h2>
+        <p>Pキー、または一時停止ボタンで再開</p>
+      </div>
+    </section>
+
+    <section class="controls" aria-label="スマホ操作">
+      <button id="leftBtn">←</button>
+      <button id="shootBtn">SHOT</button>
+      <button id="rightBtn">→</button>
+    </section>
+
+    <section class="small-actions">
+      <button id="pauseBtn">PAUSE</button>
+      <button id="soundBtn">SOUND ON</button>
+    </section>
+
+    <p class="help">
+      PC: ← → で移動 / Spaceで発射 / Pで一時停止 / Rでリスタート<br>
+      四角形または長方形が完成すると消えます。
+    </p>
+  </main>
+
+  <script>
+    "use strict";
+
+    const COLS = 10;
+    const ROWS = 20;
+    const CELL = 30;
+    const CANVAS_W = COLS * CELL;
+    const CANVAS_H = ROWS * CELL;
+
+    const EMPTY = 0;
+    const BLOCK = 1;
+
+    const INITIAL_DROP_INTERVAL = 950;
+    const MIN_DROP_INTERVAL = 260;
+    const BULLET_INTERVAL = 72;
+    const SPAWN_INTERVAL_BASE = 1800;
+    const BEST_KEY = "rect_blaster_best_score_v1";
+
+    const SHAPES = [
+      // 2x2 あと1マス
+      [[1, 1], [1, 0]],
+      [[1, 1], [0, 1]],
+      [[1, 0], [1, 1]],
+      [[0, 1], [1, 1]],
+
+      // コの字
+      [[1, 0, 1], [1, 1, 1]],
+      [[1, 1, 1], [1, 0, 1]],
+
+      // L字
+      [[1, 0], [1, 0], [1, 1]],
+      [[0, 1], [0, 1], [1, 1]],
+      [[1, 1, 1], [1, 0, 0]],
+      [[1, 1, 1], [0, 0, 1]],
+
+      // T字
+      [[1, 1, 1], [0, 1, 0]],
+      [[0, 1, 0], [1, 1, 1]],
+
+      // 穴あき
+      [[1, 1, 1], [1, 0, 1], [1, 1, 1]],
+
+      // 3x2 あと1マス
+      [[1, 1, 1], [1, 0, 1]],
+      [[1, 0, 1], [1, 1, 1]],
+
+      // 4x2 あと2マス
+      [[1, 1, 1, 1], [1, 0, 0, 1]]
+    ];
+
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    canvas.width = CANVAS_W;
+    canvas.height = CANVAS_H;
+
+    const scoreEl = document.getElementById("score");
+    const levelEl = document.getElementById("level");
+    const bestEl = document.getElementById("best");
+    const finalScoreEl = document.getElementById("finalScore");
+    const finalBestEl = document.getElementById("finalBest");
+    const startOverlay = document.getElementById("startOverlay");
+    const gameOverOverlay = document.getElementById("gameOverOverlay");
+    const pauseOverlay = document.getElementById("pauseOverlay");
+    const gameWrap = document.getElementById("gameWrap");
+
+    let grid;
+    let player;
+    let bullets;
+    let score;
+    let level;
+    let bestScore;
+    let running;
+    let paused;
+    let gameEnded;
+
+    let lastTime = 0;
+    let dropTimer = 0;
+    let spawnTimer = 0;
+    let bulletTimer = 0;
+    let clearFlashTimer = 0;
+
+    let keys = {
+      left: false,
+      right: false
+    };
+
+    let soundEnabled = true;
+    let audioCtx = null;
+
+    function initGame() {
+      bestScore = Number(localStorage.getItem(BEST_KEY) || 0);
+      bestEl.textContent = bestScore;
+      resetGame(false);
+      bindEvents();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function resetGame(startNow = true) {
+      grid = createEmptyGrid();
+      player = { x: Math.floor(COLS / 2), y: ROWS - 1 };
+      bullets = [];
+      score = 0;
+      level = 1;
+      running = startNow;
+      paused = false;
+      gameEnded = false;
+      lastTime = 0;
+      dropTimer = 0;
+      spawnTimer = 900;
+      bulletTimer = 0;
+      clearFlashTimer = 0;
+
+      scoreEl.textContent = score;
+      levelEl.textContent = level;
+      bestEl.textContent = bestScore;
+
+      startOverlay.classList.toggle("show", !startNow);
+      gameOverOverlay.classList.remove("show");
+      pauseOverlay.classList.remove("show");
+
+      draw();
+    }
+
+    function createEmptyGrid() {
+      return Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY));
+    }
+
+    function bindEvents() {
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "ArrowLeft") {
+          keys.left = true;
+          e.preventDefault();
+        }
+        if (e.code === "ArrowRight") {
+          keys.right = true;
+          e.preventDefault();
+        }
+        if (e.code === "Space") {
+          shoot();
+          e.preventDefault();
+        }
+        if (e.code === "KeyP") {
+          togglePause();
+          e.preventDefault();
+        }
+        if (e.code === "KeyR") {
+          resetGame(true);
+          e.preventDefault();
+        }
+      });
+
+      document.addEventListener("keyup", (e) => {
+        if (e.code === "ArrowLeft") keys.left = false;
+        if (e.code === "ArrowRight") keys.right = false;
+      });
+
+      document.getElementById("startBtn").addEventListener("click", () => resetGame(true));
+      document.getElementById("retryBtn").addEventListener("click", () => resetGame(true));
+      document.getElementById("pauseBtn").addEventListener("click", togglePause);
+      document.getElementById("soundBtn").addEventListener("click", toggleSound);
+
+      bindHoldButton("leftBtn", () => movePlayer(-1));
+      bindHoldButton("rightBtn", () => movePlayer(1));
+
+      document.getElementById("shootBtn").addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        shoot();
+      });
+    }
+
+    function bindHoldButton(id, action) {
+      const btn = document.getElementById(id);
+      let intervalId = null;
+
+      const start = (e) => {
+        e.preventDefault();
+        action();
+        clearInterval(intervalId);
+        intervalId = setInterval(action, 110);
+      };
+      const stop = () => {
+        clearInterval(intervalId);
+        intervalId = null;
+      };
+
+      btn.addEventListener("pointerdown", start);
+      btn.addEventListener("pointerup", stop);
+      btn.addEventListener("pointercancel", stop);
+      btn.addEventListener("pointerleave", stop);
+    }
+
+    function gameLoop(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      const delta = timestamp - lastTime;
+      lastTime = timestamp;
+
+      if (running && !paused && !gameEnded) {
+        update(delta);
+      }
+
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function update(delta) {
+      bulletTimer += delta;
+      dropTimer += delta;
+      spawnTimer += delta;
+      if (clearFlashTimer > 0) clearFlashTimer -= delta;
+
+      handleContinuousInput(delta);
+
+      while (bulletTimer >= BULLET_INTERVAL) {
+        updateBullets();
+        bulletTimer -= BULLET_INTERVAL;
+      }
+
+      const dropInterval = Math.max(MIN_DROP_INTERVAL, INITIAL_DROP_INTERVAL - (level - 1) * 85);
+      if (dropTimer >= dropInterval) {
+        moveBlocksDown();
+        dropTimer = 0;
+      }
+
+      const spawnInterval = Math.max(740, SPAWN_INTERVAL_BASE - (level - 1) * 110);
+      if (spawnTimer >= spawnInterval) {
+        spawnBlock();
+        spawnTimer = 0;
+      }
+
+      checkLevelUp();
+      checkGameOver();
+    }
+
+    let moveAccumulator = 0;
+    function handleContinuousInput(delta) {
+      moveAccumulator += delta;
+      if (moveAccumulator < 95) return;
+
+      if (keys.left) {
+        movePlayer(-1);
+        moveAccumulator = 0;
+      } else if (keys.right) {
+        movePlayer(1);
+        moveAccumulator = 0;
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+      drawBackground();
+      drawGridBlocks();
+      drawBullets();
+      drawPlayer();
+
+      if (clearFlashTimer > 0) {
+        ctx.fillStyle = "rgba(255,255,255,0.12)";
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+      }
+    }
+
+    function drawBackground() {
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+      ctx.strokeStyle = "rgba(56, 189, 248, 0.14)";
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= COLS; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * CELL, 0);
+        ctx.lineTo(x * CELL, CANVAS_H);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= ROWS; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * CELL);
+        ctx.lineTo(CANVAS_W, y * CELL);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = "rgba(251, 113, 133, 0.45)";
+      ctx.setLineDash([7, 7]);
+      ctx.beginPath();
+      ctx.moveTo(0, (ROWS - 1) * CELL);
+      ctx.lineTo(CANVAS_W, (ROWS - 1) * CELL);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawGridBlocks() {
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if (grid[y][x] === BLOCK) {
+            drawBlock(x, y, "#22d3ee", "#0ea5e9");
+          }
+        }
+      }
+    }
+
+    function drawBlock(x, y, fill, inner) {
+      const px = x * CELL;
+      const py = y * CELL;
+      const pad = 3;
+
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = "rgba(34, 211, 238, 0.75)";
+      ctx.fillStyle = fill;
+      ctx.fillRect(px + pad, py + pad, CELL - pad * 2, CELL - pad * 2);
+
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = inner;
+      ctx.fillRect(px + pad + 4, py + pad + 4, CELL - (pad + 4) * 2, CELL - (pad + 4) * 2);
+
+      ctx.strokeStyle = "rgba(240, 249, 255, 0.7)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(px + pad + 0.5, py + pad + 0.5, CELL - pad * 2 - 1, CELL - pad * 2 - 1);
+    }
+
+    function drawBullets() {
+      for (const bullet of bullets) {
+        drawBlock(bullet.x, bullet.y, "#f8fafc", "#bae6fd");
+      }
+    }
+
+    function drawPlayer() {
+      const x = player.x * CELL;
+      const y = player.y * CELL;
+
+      ctx.shadowBlur = 16;
+      ctx.shadowColor = "rgba(125, 211, 252, 0.95)";
+      ctx.fillStyle = "#f0f9ff";
+      ctx.beginPath();
+      ctx.moveTo(x + CELL / 2, y + 4);
+      ctx.lineTo(x + CELL - 5, y + CELL - 5);
+      ctx.lineTo(x + 5, y + CELL - 5);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    function spawnBlock() {
+      const shape = selectShapeForLevel();
+      const width = shape[0].length;
+      const startX = Math.floor(Math.random() * (COLS - width + 1));
+
+      for (let sy = 0; sy < shape.length; sy++) {
+        for (let sx = 0; sx < shape[sy].length; sx++) {
+          if (shape[sy][sx] === 1) {
+            const gx = startX + sx;
+            const gy = sy;
+            if (grid[gy][gx] === BLOCK) {
+              triggerGameOver();
+              return;
+            }
+          }
+        }
+      }
+
+      for (let sy = 0; sy < shape.length; sy++) {
+        for (let sx = 0; sx < shape[sy].length; sx++) {
+          if (shape[sy][sx] === 1) {
+            grid[sy][startX + sx] = BLOCK;
+          }
+        }
+      }
+    }
+
+    function selectShapeForLevel() {
+      const maxIndex = Math.min(SHAPES.length, 5 + level * 2);
+      return SHAPES[Math.floor(Math.random() * maxIndex)];
+    }
+
+    function moveBlocksDown() {
+      for (let y = ROWS - 2; y >= 0; y--) {
+        for (let x = 0; x < COLS; x++) {
+          if (grid[y][x] === BLOCK) {
+            if (y + 1 >= ROWS - 1) {
+              triggerGameOver();
+              return;
+            }
+            if (grid[y + 1][x] === EMPTY) {
+              grid[y + 1][x] = BLOCK;
+              grid[y][x] = EMPTY;
+            }
+          }
+        }
+      }
+    }
+
+    function movePlayer(dx) {
+      if (!running || paused || gameEnded) return;
+      const nextX = player.x + dx;
+      if (nextX >= 0 && nextX < COLS) {
+        player.x = nextX;
+      }
+    }
+
+    function shoot() {
+      if (!running || paused || gameEnded) return;
+
+      // MVPは画面内に最大2発まで。ゲームバランスを見て調整可能。
+      if (bullets.length >= 2) return;
+
+      const startY = player.y - 1;
+      if (startY < 0) return;
+      if (grid[startY][player.x] === BLOCK) {
+        triggerGameOver();
+        return;
+      }
+
+      bullets.push({ x: player.x, y: startY });
+      playTone(540, 0.04, "square", 0.035);
+    }
+
+    function updateBullets() {
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        const nextY = b.y - 1;
+
+        if (nextY < 0) {
+          bullets.splice(i, 1);
+          continue;
+        }
+
+        if (grid[nextY][b.x] === BLOCK) {
+          attachBulletToBlock(b, i);
+          continue;
+        }
+
+        b.y = nextY;
+      }
+    }
+
+    function attachBulletToBlock(bullet, index) {
+      // 弾がブロックに当たったら、弾の現在位置をブロックとして固定する。
+      if (bullet.y >= 0 && bullet.y < ROWS && grid[bullet.y][bullet.x] === EMPTY) {
+        grid[bullet.y][bullet.x] = BLOCK;
+      }
+      bullets.splice(index, 1);
+
+      playTone(220, 0.05, "triangle", 0.04);
+      checkRectangles();
+    }
+
+    function checkRectangles() {
+      const visited = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+      const groupsToClear = [];
+
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if (grid[y][x] === BLOCK && !visited[y][x]) {
+            const group = floodFill(x, y, visited);
+            if (isPerfectRectangle(group)) {
+              groupsToClear.push(group);
+            }
+          }
+        }
+      }
+
+      if (groupsToClear.length > 0) {
+        clearBlocks(groupsToClear);
+      }
+    }
+
+    function floodFill(startX, startY, visited) {
+      const stack = [{ x: startX, y: startY }];
+      const group = [];
+      visited[startY][startX] = true;
+
+      while (stack.length > 0) {
+        const cell = stack.pop();
+        group.push(cell);
+
+        const neighbors = [
+          { x: cell.x + 1, y: cell.y },
+          { x: cell.x - 1, y: cell.y },
+          { x: cell.x, y: cell.y + 1 },
+          { x: cell.x, y: cell.y - 1 }
+        ];
+
+        for (const n of neighbors) {
+          if (
+            n.x >= 0 && n.x < COLS &&
+            n.y >= 0 && n.y < ROWS &&
+            !visited[n.y][n.x] &&
+            grid[n.y][n.x] === BLOCK
+          ) {
+            visited[n.y][n.x] = true;
+            stack.push(n);
+          }
+        }
+      }
+
+      return group;
+    }
+
+    function isPerfectRectangle(group) {
+      if (group.length < 2) return false;
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const cell of group) {
+        minX = Math.min(minX, cell.x);
+        maxX = Math.max(maxX, cell.x);
+        minY = Math.min(minY, cell.y);
+        maxY = Math.max(maxY, cell.y);
+      }
+
+      const width = maxX - minX + 1;
+      const height = maxY - minY + 1;
+      const area = width * height;
+
+      // 1x1は消さない。1x2以上、または2x2以上を許可。
+      if (area < 2) return false;
+
+      return group.length === area;
+    }
+
+    function clearBlocks(groups) {
+      let cleared = 0;
+      let bonus = 0;
+
+      for (const group of groups) {
+        cleared += group.length;
+        bonus += getAreaBonus(group.length);
+
+        for (const cell of group) {
+          grid[cell.y][cell.x] = EMPTY;
+        }
+      }
+
+      const gained = cleared * 10 + bonus;
+      score += gained;
+      scoreEl.textContent = score;
+
+      clearFlashTimer = 150;
+      gameWrap.classList.remove("flash");
+      void gameWrap.offsetWidth;
+      gameWrap.classList.add("flash");
+
+      playClearSound();
+    }
+
+    function getAreaBonus(area) {
+      if (area >= 12) return 500;
+      if (area >= 8) return 200;
+      if (area >= 6) return 100;
+      if (area >= 4) return 50;
+      return 0;
+    }
+
+    function checkLevelUp() {
+      const newLevel = Math.floor(score / 500) + 1;
+      if (newLevel > level) {
+        level = newLevel;
+        levelEl.textContent = level;
+        playTone(780, 0.08, "sawtooth", 0.04);
+        setTimeout(() => playTone(980, 0.08, "sawtooth", 0.04), 80);
+      }
+    }
+
+    function checkGameOver() {
+      for (let x = 0; x < COLS; x++) {
+        if (grid[ROWS - 1][x] === BLOCK) {
+          triggerGameOver();
+          return;
+        }
+      }
+    }
+
+    function triggerGameOver() {
+      if (gameEnded) return;
+      gameEnded = true;
+      running = false;
+
+      if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem(BEST_KEY, String(bestScore));
+      }
+
+      finalScoreEl.textContent = score;
+      finalBestEl.textContent = bestScore;
+      bestEl.textContent = bestScore;
+      gameOverOverlay.classList.add("show");
+      playGameOverSound();
+    }
+
+    function togglePause() {
+      if (!running || gameEnded) return;
+      paused = !paused;
+      pauseOverlay.classList.toggle("show", paused);
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById("soundBtn").textContent = soundEnabled ? "SOUND ON" : "SOUND OFF";
+    }
+
+    function ensureAudio() {
+      if (!soundEnabled) return null;
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      return audioCtx;
+    }
+
+    function playTone(freq, duration, type = "sine", volume = 0.03) {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.value = volume;
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      const now = ctx.currentTime;
+      gain.gain.setValueAtTime(volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      osc.start(now);
+      osc.stop(now + duration);
+    }
+
+    function playClearSound() {
+      playTone(660, 0.05, "square", 0.04);
+      setTimeout(() => playTone(880, 0.06, "square", 0.035), 55);
+    }
+
+    function playGameOverSound() {
+      playTone(260, 0.12, "sawtooth", 0.035);
+      setTimeout(() => playTone(180, 0.18, "sawtooth", 0.03), 120);
+    }
+
+    initGame();
+  </script>
+</body>
+</html>
