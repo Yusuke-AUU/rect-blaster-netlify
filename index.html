@@ -113,6 +113,7 @@
 
     .game-wrap {
       position: relative;
+      touch-action: none;
       width: min(100%, 380px);
       aspect-ratio: 14 / 24;
       border: 2px solid var(--line);
@@ -246,7 +247,7 @@
 <body>
   <main class="app">
     <h1 class="title">RECT BLASTER</h1>
-    <p class="subtitle">MOBILE FIT v4.4</p>
+    <p class="subtitle">TOUCH CONTROL v4.5</p>
 
     <section class="hud" aria-label="スコア表示">
       <div class="hud-card">
@@ -268,7 +269,7 @@
 
       <div class="overlay show" id="startOverlay">
         <h2>READY?</h2>
-        <p>上から落ちてくるブロックに、下からブロック弾を撃ち込め！<br>四角形を完成させるとブロックが消えます。</p>
+        <p>タップで発射、左右スワイプで移動。<br>四角形を完成させるとブロックが消えます。</p>
         <button id="startBtn">START</button>
       </div>
 
@@ -297,7 +298,7 @@
     </section>
 
     <p class="help">
-      PC: ← → で移動 / Spaceで発射 / Pで一時停止 / Rでリスタート<br>
+      PC: ← → で移動 / Spaceで発射　スマホ: タップで発射 / 左右スワイプで移動<br>
       照射ガイドを目印に、欠けた列を狙って撃ち込もう。
     </p>
   </main>
@@ -317,7 +318,7 @@
     const MIN_DROP_INTERVAL = 620;
     const BULLET_INTERVAL = 50;
     const SPAWN_INTERVAL_BASE = 2900;
-    const BEST_KEY = "rect_blaster_best_score_v4_3_guide";
+    const BEST_KEY = "rect_blaster_best_score_v4_5_touch";
 
     /*
       v4の根本修正：
@@ -360,6 +361,13 @@
     let clearFlashTimer = 0;
 
     let keys = { left: false, right: false };
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchLastX = 0;
+    let touchMoved = false;
+    const SWIPE_CELL_RATIO = 0.75;
+    const TAP_MOVE_LIMIT = 12;
     let soundEnabled = true;
     let audioCtx = null;
 
@@ -448,6 +456,88 @@
       document.getElementById("shootBtn").addEventListener("pointerdown", (e) => {
         e.preventDefault();
         shoot();
+      });
+
+      bindGameTouchControls();
+    }
+
+    function bindGameTouchControls() {
+      /*
+        v4.5 Touch Control：
+        スマホではゲーム画面をタップで発射、左右スワイプで移動。
+        既存の左右ボタン・SHOTボタンも残す。
+        縦方向の動きは誤操作防止のため無視する。
+      */
+      const target = document.getElementById("gameWrap");
+
+      target.addEventListener("pointerdown", (e) => {
+        if (!running || paused || gameEnded) return;
+        if (e.pointerType === "mouse") return;
+
+        e.preventDefault();
+        target.setPointerCapture(e.pointerId);
+
+        touchStartX = e.clientX;
+        touchStartY = e.clientY;
+        touchLastX = e.clientX;
+        touchMoved = false;
+      });
+
+      target.addEventListener("pointermove", (e) => {
+        if (!running || paused || gameEnded) return;
+        if (e.pointerType === "mouse") return;
+
+        e.preventDefault();
+
+        const dxFromStart = e.clientX - touchStartX;
+        const dyFromStart = e.clientY - touchStartY;
+        const dxFromLast = e.clientX - touchLastX;
+
+        // 縦方向が強い動きは無視
+        if (Math.abs(dyFromStart) > Math.abs(dxFromStart) * 1.35) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const cellPx = rect.width / COLS;
+        const threshold = Math.max(12, cellPx * SWIPE_CELL_RATIO);
+
+        if (Math.abs(dxFromLast) >= threshold) {
+          const steps = Math.trunc(dxFromLast / threshold);
+          const direction = steps > 0 ? 1 : -1;
+          const count = Math.min(3, Math.abs(steps));
+
+          for (let i = 0; i < count; i++) {
+            movePlayer(direction);
+          }
+
+          touchLastX += threshold * steps;
+          touchMoved = true;
+        }
+      });
+
+      target.addEventListener("pointerup", (e) => {
+        if (e.pointerType === "mouse") return;
+
+        e.preventDefault();
+
+        const dx = e.clientX - touchStartX;
+        const dy = e.clientY - touchStartY;
+        const distance = Math.hypot(dx, dy);
+
+        // ほぼ動いていない場合はタップとして発射
+        if (!touchMoved && distance <= TAP_MOVE_LIMIT) {
+          shoot();
+        }
+
+        try {
+          target.releasePointerCapture(e.pointerId);
+        } catch (_) {}
+      });
+
+      target.addEventListener("pointercancel", (e) => {
+        if (e.pointerType === "mouse") return;
+        try {
+          target.releasePointerCapture(e.pointerId);
+        } catch (_) {}
       });
     }
 
