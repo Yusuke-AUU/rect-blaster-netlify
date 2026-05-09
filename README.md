@@ -1,15 +1,41 @@
-[build]
-  publish = "."
-  command = ""
+# RECT BLASTER v4
 
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Frame-Options = "DENY"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
+v4では、ゲームの根本ロジックを修正しました。
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+## v4での主な修正
+
+v3までは、別々に落ちてきたブロックが隣接すると、すべて同じブロック群として判定されていました。
+
+そのため、下にブロックが溜まると巨大な一塊になってしまい、ほぼ消せない状態になっていました。
+
+v4では、落下ブロックごとにgroupIdを付与しています。
+
+- 別々のブロックは、接触しても別グループ
+- 弾が当たった場合、当たったブロックのgroupIdに追加
+- 四角形判定はそのgroupIdだけで行う
+- 隣接ブロックに判定が巻き込まれない
+
+これにより、狙ったブロックだけを四角形にして消せるようになります。
+
+## 遊び方
+
+PC操作：
+
+- 左矢印キー：左移動
+- 右矢印キー：右移動
+- Space：ブロック弾を発射
+- P：一時停止
+- R：リスタート
+
+スマホ操作：
+
+- 左ボタン：左移動
+- SHOTボタン：発射
+- 右ボタン：右移動
+
+## GitHub / Netlify
+
+このフォルダをGitHubにアップし、Netlifyでリポジトリを選択すれば公開できます。
+
+Build commandは空欄でOKです。
+Publish directoryは `.` です。
