@@ -214,7 +214,7 @@
 <body>
   <main class="app">
     <h1 class="title">RECT BLASTER</h1>
-    <p class="subtitle">SMALL BLOCK v4.2</p>
+    <p class="subtitle">GUIDE LINE v4.3</p>
 
     <section class="hud" aria-label="スコア表示">
       <div class="hud-card">
@@ -236,7 +236,7 @@
 
       <div class="overlay show" id="startOverlay">
         <h2>READY?</h2>
-        <p>ブロックを小さくして、より細かく撃ち込む感覚に調整。<br>v4系の安定ロジックは維持しています。</p>
+        <p>ブロック増加を少し緩くし、照射ガイドを追加。<br>v4系の安定ロジックは維持しています。</p>
         <button id="startBtn">START</button>
       </div>
 
@@ -266,7 +266,7 @@
 
     <p class="help">
       PC: ← → で移動 / Spaceで発射 / Pで一時停止 / Rでリスタート<br>
-      小さいブロックでテンポよく埋める調整。よりクォース風です。
+      照射ガイドで狙う列が見やすくなりました。
     </p>
   </main>
 
@@ -284,8 +284,8 @@
     const INITIAL_DROP_INTERVAL = 1500;
     const MIN_DROP_INTERVAL = 620;
     const BULLET_INTERVAL = 50;
-    const SPAWN_INTERVAL_BASE = 2550;
-    const BEST_KEY = "rect_blaster_best_score_v4_2_small_block";
+    const SPAWN_INTERVAL_BASE = 2900;
+    const BEST_KEY = "rect_blaster_best_score_v4_3_guide";
 
     /*
       v4の根本修正：
@@ -472,7 +472,7 @@
         dropTimer = 0;
       }
 
-      const spawnInterval = Math.max(1700, SPAWN_INTERVAL_BASE - (level - 1) * 150);
+      const spawnInterval = Math.max(1900, SPAWN_INTERVAL_BASE - (level - 1) * 80);
       if (spawnTimer >= spawnInterval) {
         spawnBlock(false);
         spawnTimer = 0;
@@ -499,6 +499,7 @@
     function draw() {
       ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
       drawBackground();
+      drawGuideLine();
       drawGridBlocks();
       drawBullets();
       drawPlayer();
@@ -535,6 +536,42 @@
       ctx.lineTo(CANVAS_W, (ROWS - 1) * CELL);
       ctx.stroke();
       ctx.setLineDash([]);
+    }
+
+    function drawGuideLine() {
+      /*
+        v4.3 照射ガイド：
+        プレイヤーの真上に薄い縦ラインを表示。
+        どの列を狙っているか分かりやすくする。
+        実際の弾や当たり判定には影響しない。
+      */
+      if (!running || paused || gameEnded) return;
+
+      const x = player.x * CELL;
+      const centerX = x + CELL / 2;
+      const topY = 0;
+      const bottomY = player.y * CELL;
+
+      ctx.save();
+
+      const gradient = ctx.createLinearGradient(centerX, topY, centerX, bottomY);
+      gradient.addColorStop(0, "rgba(125, 211, 252, 0.02)");
+      gradient.addColorStop(0.55, "rgba(125, 211, 252, 0.13)");
+      gradient.addColorStop(1, "rgba(125, 211, 252, 0.28)");
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x + 2, topY, CELL - 4, bottomY);
+
+      ctx.strokeStyle = "rgba(240, 249, 255, 0.38)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 8]);
+      ctx.beginPath();
+      ctx.moveTo(centerX, topY);
+      ctx.lineTo(centerX, bottomY);
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+      ctx.restore();
     }
 
     function drawGridBlocks() {
@@ -629,9 +666,9 @@
     }
 
     function maxGroupsForLevel() {
-      if (level <= 2) return 5;
-      if (level <= 5) return 6;
-      if (level <= 10) return 7;
+      if (level <= 3) return 5;
+      if (level <= 8) return 6;
+      if (level <= 14) return 7;
       return 8;
     }
 
