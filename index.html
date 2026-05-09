@@ -214,7 +214,7 @@
 <body>
   <main class="app">
     <h1 class="title">RECT BLASTER</h1>
-    <p class="subtitle">GROUP-ID FIX v4</p>
+    <p class="subtitle">STRATEGY TUNED v5</p>
 
     <section class="hud" aria-label="スコア表示">
       <div class="hud-card">
@@ -236,7 +236,7 @@
 
       <div class="overlay show" id="startOverlay">
         <h2>READY?</h2>
-        <p>v4では別々のブロックを別グループ管理します。<br>隣とくっついても、狙ったブロックだけ消せます。</p>
+        <p>v5ではレベルアップで必要ショット数が増えます。<br>速度よりも判断力で難しくなる調整です。</p>
         <button id="startBtn">START</button>
       </div>
 
@@ -266,7 +266,7 @@
 
     <p class="help">
       PC: ← → で移動 / Spaceで発射 / Pで一時停止 / Rでリスタート<br>
-      ブロックごとに独立判定。下辺の欠けを撃って消してください。
+      レベルが上がると欠けマスが増えます。狙う列を見極めてください。
     </p>
   </main>
 
@@ -281,13 +281,17 @@
 
     const EMPTY = 0;
 
-    const INITIAL_DROP_INTERVAL = 1700;
-    const MIN_DROP_INTERVAL = 650;
+    const INITIAL_DROP_INTERVAL = 1750;
+    const MIN_DROP_INTERVAL = 950;
     const BULLET_INTERVAL = 50;
-    const SPAWN_INTERVAL_BASE = 3600;
-    const BEST_KEY = "rect_blaster_best_score_v4";
+    const SPAWN_INTERVAL_BASE = 3200;
+    const BEST_KEY = "rect_blaster_best_score_v5";
 
     /*
+      v5の方針：
+      groupId方式は維持。
+      レベルアップでは落下速度よりも「必要ショット数」と「同時出現数」で難易度を上げる。
+
       v4の根本修正：
       gridには 0 または groupId を入れる。
       これにより、別々に落ちてきたブロックが隣接しても同じ塊として扱わない。
@@ -466,13 +470,13 @@
         bulletTimer -= BULLET_INTERVAL;
       }
 
-      const dropInterval = Math.max(MIN_DROP_INTERVAL, INITIAL_DROP_INTERVAL - (level - 1) * 90);
+      const dropInterval = Math.max(MIN_DROP_INTERVAL, INITIAL_DROP_INTERVAL - (level - 1) * 22);
       if (dropTimer >= dropInterval) {
         moveBlocksDownAsWhole();
         dropTimer = 0;
       }
 
-      const spawnInterval = Math.max(1700, SPAWN_INTERVAL_BASE - (level - 1) * 150);
+      const spawnInterval = Math.max(1850, SPAWN_INTERVAL_BASE - (level - 1) * 70);
       if (spawnTimer >= spawnInterval) {
         spawnBlock(false);
         spawnTimer = 0;
@@ -631,7 +635,9 @@
     function maxGroupsForLevel() {
       if (level <= 2) return 3;
       if (level <= 5) return 4;
-      return 5;
+      if (level <= 9) return 5;
+      if (level <= 15) return 6;
+      return 7;
     }
 
     function countActiveGroups() {
@@ -645,31 +651,53 @@
     }
 
     function generateBottomGapShape(isOpeningPractice) {
+      /*
+        v5：
+        速度ではなく、必要ショット数で難しくする。
+        すべての欠けは最下段のみなので、下から必ず完成可能。
+        レベルが上がるほど、横幅・高さ・欠け数が増える。
+      */
       let patterns;
 
       if (isOpeningPractice || level <= 2) {
         patterns = [
           { w: 2, h: 2, holes: 1 },
           { w: 3, h: 2, holes: 1 },
-          { w: 4, h: 2, holes: 1 }
+          { w: 4, h: 2, holes: 1 },
+          { w: 3, h: 2, holes: 2 }
         ];
       } else if (level <= 5) {
         patterns = [
-          { w: 2, h: 2, holes: 1 },
-          { w: 3, h: 2, holes: 1 },
-          { w: 4, h: 2, holes: 1 },
-          { w: 3, h: 3, holes: 1 },
-          { w: 4, h: 3, holes: 1 },
-          { w: 4, h: 2, holes: 2 }
+          { w: 3, h: 2, holes: 2 },
+          { w: 4, h: 2, holes: 2 },
+          { w: 3, h: 3, holes: 2 },
+          { w: 4, h: 3, holes: 2 },
+          { w: 5, h: 2, holes: 2 }
+        ];
+      } else if (level <= 10) {
+        patterns = [
+          { w: 4, h: 2, holes: 2 },
+          { w: 4, h: 3, holes: 2 },
+          { w: 5, h: 2, holes: 2 },
+          { w: 5, h: 3, holes: 2 },
+          { w: 4, h: 3, holes: 3 },
+          { w: 5, h: 3, holes: 3 }
+        ];
+      } else if (level <= 18) {
+        patterns = [
+          { w: 4, h: 3, holes: 3 },
+          { w: 5, h: 3, holes: 3 },
+          { w: 5, h: 4, holes: 3 },
+          { w: 6, h: 3, holes: 3 },
+          { w: 6, h: 3, holes: 4 }
         ];
       } else {
         patterns = [
-          { w: 3, h: 2, holes: 1 },
-          { w: 4, h: 2, holes: 1 },
-          { w: 3, h: 3, holes: 1 },
-          { w: 4, h: 3, holes: 1 },
-          { w: 4, h: 2, holes: 2 },
-          { w: 5, h: 2, holes: 2 }
+          { w: 5, h: 3, holes: 3 },
+          { w: 5, h: 4, holes: 4 },
+          { w: 6, h: 3, holes: 4 },
+          { w: 6, h: 4, holes: 4 },
+          { w: 7, h: 3, holes: 4 }
         ];
       }
 
@@ -678,10 +706,12 @@
 
       const bottomY = p.h - 1;
       const holeXs = pickDistinctIntegers(p.w, p.holes);
+
       for (const hx of holeXs) {
         shape[bottomY][hx] = 0;
       }
 
+      // 安全策：最下段が全部穴にならないようにする
       if (shape[bottomY].every(v => v === 0)) {
         shape[bottomY][0] = 1;
       }
@@ -752,9 +782,15 @@
       }
     }
 
+    function maxBulletsForLevel() {
+      if (level <= 5) return 3;
+      if (level <= 12) return 4;
+      return 5;
+    }
+
     function shoot() {
       if (!running || paused || gameEnded) return;
-      if (bullets.length >= 3) return;
+      if (bullets.length >= maxBulletsForLevel()) return;
 
       const startY = player.y - 1;
       if (startY < 0) return;
@@ -867,15 +903,17 @@
     }
 
     function getAreaBonus(area) {
-      if (area >= 12) return 500;
-      if (area >= 8) return 200;
-      if (area >= 6) return 100;
+      if (area >= 24) return 1600;
+      if (area >= 18) return 1000;
+      if (area >= 12) return 600;
+      if (area >= 8) return 250;
+      if (area >= 6) return 120;
       if (area >= 4) return 50;
       return 0;
     }
 
     function checkLevelUp() {
-      const newLevel = Math.floor(score / 1000) + 1;
+      const newLevel = Math.floor(score / 1500) + 1;
       if (newLevel > level) {
         level = newLevel;
         levelEl.textContent = level;
