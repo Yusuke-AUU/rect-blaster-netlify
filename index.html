@@ -214,7 +214,7 @@
 <body>
   <main class="app">
     <h1 class="title">RECT BLASTER</h1>
-    <p class="subtitle">STRATEGY TUNED v5</p>
+    <p class="subtitle">QUARTH-LIKE TUNED v6</p>
 
     <section class="hud" aria-label="スコア表示">
       <div class="hud-card">
@@ -236,7 +236,7 @@
 
       <div class="overlay show" id="startOverlay">
         <h2>READY?</h2>
-        <p>v5ではレベルアップで必要ショット数が増えます。<br>速度よりも判断力で難しくなる調整です。</p>
+        <p>v6ではゲームオーバー判定を修正。<br>より見極め型のブロック構成に寄せています。</p>
         <button id="startBtn">START</button>
       </div>
 
@@ -266,7 +266,7 @@
 
     <p class="help">
       PC: ← → で移動 / Spaceで発射 / Pで一時停止 / Rでリスタート<br>
-      レベルが上がると欠けマスが増えます。狙う列を見極めてください。
+      危険ラインに到達したら終了。複数箇所を埋めて四角形を完成させてください。
     </p>
   </main>
 
@@ -281,13 +281,19 @@
 
     const EMPTY = 0;
 
-    const INITIAL_DROP_INTERVAL = 1750;
-    const MIN_DROP_INTERVAL = 950;
+    const INITIAL_DROP_INTERVAL = 1650;
+    const MIN_DROP_INTERVAL = 780;
     const BULLET_INTERVAL = 50;
-    const SPAWN_INTERVAL_BASE = 3200;
-    const BEST_KEY = "rect_blaster_best_score_v5";
+    const SPAWN_INTERVAL_BASE = 2750;
+    const BEST_KEY = "rect_blaster_best_score_v6";
+    const DANGER_ROW = ROWS - 1;
 
     /*
+      v6の方針：
+      QUARTH風に近づけるため、1〜2発で消えすぎる親切設計をやめる。
+      ただし上からしか埋められない理不尽形は出さない。
+      ゲームオーバーは危険ライン到達時のみ。
+
       v5の方針：
       groupId方式は維持。
       レベルアップでは落下速度よりも「必要ショット数」と「同時出現数」で難易度を上げる。
@@ -470,13 +476,13 @@
         bulletTimer -= BULLET_INTERVAL;
       }
 
-      const dropInterval = Math.max(MIN_DROP_INTERVAL, INITIAL_DROP_INTERVAL - (level - 1) * 22);
+      const dropInterval = Math.max(MIN_DROP_INTERVAL, INITIAL_DROP_INTERVAL - (level - 1) * 32);
       if (dropTimer >= dropInterval) {
         moveBlocksDownAsWhole();
         dropTimer = 0;
       }
 
-      const spawnInterval = Math.max(1850, SPAWN_INTERVAL_BASE - (level - 1) * 70);
+      const spawnInterval = Math.max(1350, SPAWN_INTERVAL_BASE - (level - 1) * 85);
       if (spawnTimer >= spawnInterval) {
         spawnBlock(false);
         spawnTimer = 0;
@@ -535,8 +541,8 @@
       ctx.strokeStyle = "rgba(251, 113, 133, 0.45)";
       ctx.setLineDash([7, 7]);
       ctx.beginPath();
-      ctx.moveTo(0, (ROWS - 1) * CELL);
-      ctx.lineTo(CANVAS_W, (ROWS - 1) * CELL);
+      ctx.moveTo(0, DANGER_ROW * CELL);
+      ctx.lineTo(CANVAS_W, DANGER_ROW * CELL);
       ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -633,11 +639,11 @@
     }
 
     function maxGroupsForLevel() {
-      if (level <= 2) return 3;
-      if (level <= 5) return 4;
-      if (level <= 9) return 5;
-      if (level <= 15) return 6;
-      return 7;
+      if (level <= 2) return 4;
+      if (level <= 5) return 5;
+      if (level <= 9) return 6;
+      if (level <= 15) return 7;
+      return 8;
     }
 
     function countActiveGroups() {
@@ -652,52 +658,51 @@
 
     function generateBottomGapShape(isOpeningPractice) {
       /*
-        v5：
-        速度ではなく、必要ショット数で難しくする。
-        すべての欠けは最下段のみなので、下から必ず完成可能。
-        レベルが上がるほど、横幅・高さ・欠け数が増える。
+        v6：
+        1〜2発で消えすぎる状態を調整。
+        完成予定の長方形から、下から到達できるマスだけを欠けさせる。
+        欠けは最下段中心だが、中段も「その下が空いている列」に限って欠けさせる。
+        これにより、下から複数発を撃ち込めば完成可能。
       */
       let patterns;
 
       if (isOpeningPractice || level <= 2) {
         patterns = [
-          { w: 2, h: 2, holes: 1 },
-          { w: 3, h: 2, holes: 1 },
-          { w: 4, h: 2, holes: 1 },
-          { w: 3, h: 2, holes: 2 }
+          { w: 3, h: 2, holes: 2, upper: 0 },
+          { w: 4, h: 2, holes: 2, upper: 0 },
+          { w: 4, h: 3, holes: 2, upper: 0 },
+          { w: 5, h: 2, holes: 2, upper: 0 }
         ];
       } else if (level <= 5) {
         patterns = [
-          { w: 3, h: 2, holes: 2 },
-          { w: 4, h: 2, holes: 2 },
-          { w: 3, h: 3, holes: 2 },
-          { w: 4, h: 3, holes: 2 },
-          { w: 5, h: 2, holes: 2 }
+          { w: 4, h: 2, holes: 2, upper: 0 },
+          { w: 4, h: 3, holes: 3, upper: 0 },
+          { w: 5, h: 2, holes: 3, upper: 0 },
+          { w: 5, h: 3, holes: 3, upper: 1 },
+          { w: 6, h: 2, holes: 3, upper: 0 }
         ];
       } else if (level <= 10) {
         patterns = [
-          { w: 4, h: 2, holes: 2 },
-          { w: 4, h: 3, holes: 2 },
-          { w: 5, h: 2, holes: 2 },
-          { w: 5, h: 3, holes: 2 },
-          { w: 4, h: 3, holes: 3 },
-          { w: 5, h: 3, holes: 3 }
+          { w: 4, h: 3, holes: 3, upper: 1 },
+          { w: 5, h: 3, holes: 3, upper: 1 },
+          { w: 5, h: 4, holes: 4, upper: 1 },
+          { w: 6, h: 3, holes: 4, upper: 1 },
+          { w: 6, h: 2, holes: 4, upper: 0 }
         ];
       } else if (level <= 18) {
         patterns = [
-          { w: 4, h: 3, holes: 3 },
-          { w: 5, h: 3, holes: 3 },
-          { w: 5, h: 4, holes: 3 },
-          { w: 6, h: 3, holes: 3 },
-          { w: 6, h: 3, holes: 4 }
+          { w: 5, h: 3, holes: 4, upper: 1 },
+          { w: 5, h: 4, holes: 4, upper: 2 },
+          { w: 6, h: 3, holes: 4, upper: 1 },
+          { w: 6, h: 4, holes: 5, upper: 2 },
+          { w: 7, h: 3, holes: 5, upper: 1 }
         ];
       } else {
         patterns = [
-          { w: 5, h: 3, holes: 3 },
-          { w: 5, h: 4, holes: 4 },
-          { w: 6, h: 3, holes: 4 },
-          { w: 6, h: 4, holes: 4 },
-          { w: 7, h: 3, holes: 4 }
+          { w: 5, h: 4, holes: 5, upper: 2 },
+          { w: 6, h: 4, holes: 5, upper: 2 },
+          { w: 7, h: 3, holes: 5, upper: 1 },
+          { w: 7, h: 4, holes: 6, upper: 2 }
         ];
       }
 
@@ -705,10 +710,24 @@
       const shape = Array.from({ length: p.h }, () => Array(p.w).fill(1));
 
       const bottomY = p.h - 1;
-      const holeXs = pickDistinctIntegers(p.w, p.holes);
 
-      for (const hx of holeXs) {
+      // まず最下段に穴を作る。下から直接撃てる穴。
+      const bottomHoleCount = Math.max(1, p.holes - p.upper);
+      const bottomHoles = pickDistinctIntegers(p.w, bottomHoleCount);
+      for (const hx of bottomHoles) {
         shape[bottomY][hx] = 0;
+      }
+
+      // 中段穴は、必ず同じ列の下側が空いている場合だけ作る。
+      // これにより、下から順番に撃てば埋められる。
+      if (p.upper > 0 && p.h >= 3) {
+        const candidateCols = bottomHoles.slice();
+        const upperHoleCount = Math.min(p.upper, candidateCols.length);
+        for (let i = 0; i < upperHoleCount; i++) {
+          const hx = candidateCols[i];
+          const y = bottomY - 1;
+          shape[y][hx] = 0;
+        }
       }
 
       // 安全策：最下段が全部穴にならないようにする
@@ -756,12 +775,10 @@
     }
 
     function moveBlocksDownAsWhole() {
-      for (let x = 0; x < COLS; x++) {
-        if (grid[ROWS - 2][x] !== EMPTY || grid[ROWS - 1][x] !== EMPTY) {
-          triggerGameOver();
-          return;
-        }
-      }
+      // v6修正：
+      // 以前はROWS-2にブロックがあるだけでゲームオーバーになり得た。
+      // 画面上では危険ライン未到達に見えるため、これは理不尽。
+      // まず1段下げ、その結果DANGER_ROWに到達した場合のみゲームオーバーにする。
 
       for (let y = ROWS - 2; y >= 0; y--) {
         for (let x = 0; x < COLS; x++) {
@@ -771,6 +788,13 @@
 
       for (let x = 0; x < COLS; x++) {
         grid[0][x] = EMPTY;
+      }
+
+      for (let x = 0; x < COLS; x++) {
+        if (grid[DANGER_ROW][x] !== EMPTY) {
+          triggerGameOver();
+          return;
+        }
       }
     }
 
@@ -783,9 +807,9 @@
     }
 
     function maxBulletsForLevel() {
-      if (level <= 5) return 3;
-      if (level <= 12) return 4;
-      return 5;
+      if (level <= 4) return 4;
+      if (level <= 12) return 5;
+      return 6;
     }
 
     function shoot() {
@@ -913,7 +937,7 @@
     }
 
     function checkLevelUp() {
-      const newLevel = Math.floor(score / 1500) + 1;
+      const newLevel = Math.floor(score / 2200) + 1;
       if (newLevel > level) {
         level = newLevel;
         levelEl.textContent = level;
@@ -924,7 +948,7 @@
 
     function checkGameOver() {
       for (let x = 0; x < COLS; x++) {
-        if (grid[ROWS - 1][x] !== EMPTY) {
+        if (grid[DANGER_ROW][x] !== EMPTY) {
           triggerGameOver();
           return;
         }
