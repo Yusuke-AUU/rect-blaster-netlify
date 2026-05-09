@@ -42,3 +42,17 @@ PC操作：
 
 Build commandは空欄でOKです。
 Publish directoryは `.` です。
+
+
+## アイコン設定について
+
+この版では、index.html の head 内に以下の設定を組み込み済みです。
+
+- favicon-16x16.png
+- favicon-32x32.png
+- apple-touch-icon.png
+- site.webmanifest
+
+そのため、このフォルダ内のファイルをGitHubにそのままアップロードすれば、Netlify反映後にファビコンとiPhoneホーム画面用アイコンが認識されます。
+
+反映されない場合は、ブラウザやiPhoneのキャッシュが残っている可能性があるため、数分待つか、シークレットウィンドウで確認してください。
