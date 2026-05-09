@@ -1,6 +1,6 @@
-# RECT BLASTER v4.3 Guide Line
+# RECT BLASTER v4.3 Guide Line Text Fix
 
-v4.2 Small Blockをベースに、落ちてくるブロック数の増加スピードを少し緩くし、照射ガイド機能を追加した版です。
+v4.3 Guide Lineのゲームロジックはそのままに、スタート画面の説明文だけをプレイヤー向けに修正した版です。
 
 ## v4.3での主な変更
 
